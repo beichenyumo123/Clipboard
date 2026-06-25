@@ -84,11 +84,31 @@ struct ClipboardItemRow: View {
 
     @State private var appIcon: NSImage?
     @State private var isHovered: Bool = false
+    @State private var cachedIsCode: Bool?
+    @State private var cachedPlainHTML: String?
 
-    private var isCode: Bool {
-        guard item.contentType == .text,
-              let text = item.textContent else { return false }
-        return looksLikeCode(text)
+    private func resolveIsCode() -> Bool {
+        if let c = cachedIsCode { return c }
+        let v: Bool
+        if item.contentType == .text, let text = item.textContent {
+            v = looksLikeCode(text)
+        } else {
+            v = false
+        }
+        cachedIsCode = v
+        return v
+    }
+
+    private func resolvePlainHTML() -> String {
+        if let c = cachedPlainHTML { return c }
+        let v: String
+        if item.contentType == .html {
+            v = stripHTML(item.textContent ?? "")
+        } else {
+            v = item.textContent ?? ""
+        }
+        cachedPlainHTML = v
+        return v
     }
 
     var body: some View {
@@ -102,7 +122,7 @@ struct ClipboardItemRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     // Badge row
                     HStack(spacing: 5) {
-                        ClipboardTypeBadge(type: item.contentType, isCode: isCode)
+                        ClipboardTypeBadge(type: item.contentType, isCode: resolveIsCode())
                         if isSelected {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 8, weight: .bold))
@@ -136,8 +156,6 @@ struct ClipboardItemRow: View {
         }
         .background(cardBg)
         .overlay(cardBorderOverlay)
-        .scaleEffect(isHovered ? 1.015 : 1.0)
-        .offset(y: isHovered ? -2 : 0)
         .shadow(color: isHovered
             ? Color.stickyAccent.opacity(0.10) : .clear,
             radius: isHovered ? 12 : 0, x: 0, y: isHovered ? 4 : 0)
@@ -145,7 +163,7 @@ struct ClipboardItemRow: View {
             ? .black.opacity(0.08) : .clear,
             radius: isHovered ? 6 : 0, x: 0, y: isHovered ? 2 : 0)
         .onHover { hovering in
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+            withAnimation(.easeOut(duration: 0.18)) {
                 isHovered = hovering
             }
         }
@@ -178,6 +196,19 @@ struct ClipboardItemRow: View {
         }
     }
 
+    // MARK: - Font Helpers (static — checked once)
+
+    private static let monoAvailable = NSFont(name: "Maple Mono NF CN", size: 12) != nil
+    private static let serifAvailable = NSFont(name: "TsangerJinKai", size: 13) != nil
+
+    private var monoFont: Font {
+        Self.monoAvailable ? .custom("Maple Mono NF CN", size: 11.5) : .system(size: 11.5, design: .monospaced)
+    }
+
+    private var serifFont: Font {
+        Self.serifAvailable ? .custom("TsangerJinKai", size: 12.5) : .system(size: 12.5)
+    }
+
     // MARK: - Content Preview
 
     @ViewBuilder
@@ -185,32 +216,15 @@ struct ClipboardItemRow: View {
         switch item.contentType {
         case .text:
             let txt = item.textContent?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if isCode {
-                Text(txt)
-                    .font(.system(size: 11.5, design: .monospaced))
-                    .foregroundColor(.stickyTextPrimary)
-                    .tracking(-0.2)
-            } else {
-                Text(txt)
-                    .font(.system(size: 12.5))
-                    .foregroundColor(.stickyTextPrimary)
-                    .tracking(0.15)
-            }
+            let code = resolveIsCode()
+            styledText(txt, font: code ? monoFont : serifFont,
+                       tracking: code ? -0.2 : 0.15)
 
         case .rtf:
-            // RTF is already plain text extracted from attributed string
-            Text(item.textContent ?? "")
-                .font(.system(size: 12))
-                .foregroundColor(.stickyTextPrimary)
-                .tracking(0.15)
+            styledText(resolvePlainHTML(), font: serifFont, tracking: 0.15)
 
         case .html:
-            // Strip HTML tags for preview, keep raw HTML for copy-back
-            let plain = stripHTML(item.textContent ?? "")
-            Text(plain)
-                .font(.system(size: 12))
-                .foregroundColor(.stickyTextPrimary)
-                .tracking(0.15)
+            styledText(resolvePlainHTML(), font: serifFont, tracking: 0.15)
 
         case .image:
             HStack(spacing: 6) {
@@ -252,6 +266,26 @@ struct ClipboardItemRow: View {
                 }
             }
         }
+    }
+
+    /// Shared text renderer: line spacing, 3-line cap, gradient fade at bottom.
+    @ViewBuilder
+    private func styledText(_ text: String, font: Font, tracking: CGFloat) -> some View {
+        Text(text)
+            .font(font)
+            .foregroundColor(.stickyTextPrimary)
+            .tracking(tracking)
+            .lineSpacing(4)
+            .lineLimit(3)
+            .mask(
+                VStack(spacing: 0) {
+                    LinearGradient(
+                        colors: [.black, .black, .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+            )
     }
 
     // MARK: - Card Styling

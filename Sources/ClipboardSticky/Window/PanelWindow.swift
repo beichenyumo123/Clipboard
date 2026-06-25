@@ -123,7 +123,7 @@ final class PanelWindow: NSPanel, ObservableObject {
     // MARK: - Mouse Tracking
 
     private func startMouseTracking() {
-        mouseCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+        mouseCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.20, repeats: true) { [weak self] _ in
             self?.tick()
         }
     }
