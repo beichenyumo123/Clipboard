@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// Scrollable list of clipboard items with lazy loading.
 struct ClipboardListView: View {
+    @EnvironmentObject var panelWindow: PanelWindow
     @Environment(\.modelContext) private var modelContext
     let searchText: String
     @Binding var selectedItemID: UUID?
@@ -15,10 +15,7 @@ struct ClipboardListView: View {
 
         let term = searchText.lowercased()
         if term.isEmpty {
-            _items = Query(
-                sort: \ClipboardItem.timestamp, order: .reverse,
-                animation: .default
-            )
+            _items = Query(sort: \ClipboardItem.timestamp, order: .reverse, animation: .default)
         } else {
             _items = Query(
                 filter: #Predicate { $0.searchText?.contains(term) ?? false },
@@ -33,53 +30,46 @@ struct ClipboardListView: View {
             EmptyStateView()
         } else {
             ScrollView {
-                LazyVStack(spacing: 2) {
+                LazyVStack(spacing: 6) {
                     ForEach(items) { item in
-                        ClipboardItemRow(
-                            item: item,
-                            isSelected: selectedItemID == item.id
-                        )
-                        .onTapGesture {
-                            selectedItemID = item.id
-                            PasteboardWriter.copyToClipboard(item)
-
-                            // Brief visual feedback then deselect
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                                if selectedItemID == item.id {
-                                    selectedItemID = nil
-                                }
+                        ClipboardItemRow(item: item, isSelected: selectedItemID == item.id)
+                            .onTapGesture {
+                                bumpAndCopy(item)
                             }
-                        }
-                        .contextMenu {
-                            Button("复制") {
-                                PasteboardWriter.copyToClipboard(item)
-                            }
-                            Button("复制并粘贴") {
-                                PasteboardWriter.copyAndPaste(item)
-                            }
-                            Divider()
-                            if item.isPinned {
-                                Button("取消固定") {
-                                    item.isPinned = false
+                            .contextMenu {
+                                Button("复制") { bumpAndCopy(item) }
+                                Button("复制并粘贴") { PasteboardWriter.copyAndPaste(item); bumpTimestamp(item) }
+                                Divider()
+                                Button(item.isPinned ? "取消固定" : "固定") {
+                                    item.isPinned.toggle()
                                     try? modelContext.save()
                                 }
-                            } else {
-                                Button("固定") {
-                                    item.isPinned = true
-                                    try? modelContext.save()
-                                }
+                                Divider()
+                                Button("删除", role: .destructive) { deleteItem(item) }
                             }
-                            Divider()
-                            Button("删除", role: .destructive) {
-                                deleteItem(item)
-                            }
-                        }
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
             }
         }
+    }
+
+    private func bumpAndCopy(_ item: ClipboardItem) {
+        selectedItemID = item.id
+        item.timestamp = Date()
+        try? modelContext.save()
+        PasteboardWriter.copyToClipboard(item)
+        // Collapse the panel after copying
+        PanelAnimator.collapse(panelWindow)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            if selectedItemID == item.id { selectedItemID = nil }
+        }
+    }
+
+    private func bumpTimestamp(_ item: ClipboardItem) {
+        item.timestamp = Date()
+        try? modelContext.save()
     }
 
     private func deleteItem(_ item: ClipboardItem) {

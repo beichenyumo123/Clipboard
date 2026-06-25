@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Root view. Observes `PanelStateModel` (pure Swift ObservableObject — reliable @Published)
-/// for reactive state, and uses `PanelWindow` for actions.
 struct PanelRootView: View {
     @EnvironmentObject var stateModel: PanelStateModel
     @EnvironmentObject var panelWindow: PanelWindow
@@ -9,32 +7,49 @@ struct PanelRootView: View {
     private var isExpanded: Bool {
         stateModel.state == .expanded || stateModel.state == .locked
     }
+    private var isRight: Bool { stateModel.edge == .right }
 
     var body: some View {
-        ZStack(alignment: stateModel.edge == .right ? .trailing : .leading) {
+        ZStack {
             if isExpanded {
-                panelContent
-                    .transition(.opacity)
+                // Background + content as one unit — animate together
+                expandedPanel
+                    .transition(.move(edge: isRight ? .trailing : .leading)
+                        .combined(with: .opacity))
             }
             if !isExpanded {
-                tabHandle
-                    .transition(.opacity)
+                HStack(spacing: 0) {
+                    if isRight { Spacer(minLength: 0) }
+                    collapsedTab
+                    if !isRight { Spacer(minLength: 0) }
+                }
+                .transition(.opacity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .ignoresSafeArea()
-        .background(backgroundView)
-        .animation(.spring(response: 0.28, dampingFraction: 0.8), value: isExpanded)
+        .animation(.spring(response: 0.28, dampingFraction: 0.78), value: isExpanded)
     }
 
-    // MARK: - Tab Handle
+    private var expandedPanel: some View {
+        ZStack {
+            VisualEffectView(material: .menu, blendingMode: .behindWindow)
+                .ignoresSafeArea()
+                .overlay(
+                    RoundedRectangle(cornerRadius: PanelWindow.Metrics.cornerRadius)
+                        .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+                        .ignoresSafeArea()
+                )
 
-    private var tabHandle: some View {
+            PanelContentView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private var collapsedTab: some View {
         VStack(spacing: 3) {
             Image(systemName: "list.clipboard")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.secondary)
-
             Text("剪贴")
                 .font(.system(size: 8))
                 .foregroundColor(.tertiaryLabel)
@@ -46,24 +61,5 @@ struct PanelRootView: View {
                 .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
         )
         .padding(.vertical, 8)
-    }
-
-    // MARK: - Panel Content
-
-    private var panelContent: some View {
-        PanelContentView()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // MARK: - Background
-
-    @ViewBuilder
-    private var backgroundView: some View {
-        if isExpanded {
-            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-                .ignoresSafeArea()
-        } else {
-            Color.clear.ignoresSafeArea()
-        }
     }
 }

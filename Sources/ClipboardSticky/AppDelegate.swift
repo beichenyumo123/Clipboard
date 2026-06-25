@@ -9,11 +9,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var modelContainer: ModelContainer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Initialize SwiftData container
+        // Initialize SwiftData container with explicit store URL
         do {
             let schema = Schema([ClipboardItem.self])
-            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+            let storeURL = URL.applicationSupportDirectory
+                .appending(path: "ClipboardSticky")
+                .appending(path: "clipboard.store")
+            // Ensure directory exists
+            try FileManager.default.createDirectory(
+                at: storeURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let config = ModelConfiguration(schema: schema, url: storeURL)
             modelContainer = try ModelContainer(for: schema, configurations: [config])
+            print("[ClipboardSticky] Store at: \(storeURL.path())")
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
         }

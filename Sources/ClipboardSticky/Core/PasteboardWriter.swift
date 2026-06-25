@@ -1,75 +1,71 @@
 import AppKit
 
-/// Writes content back to the general pasteboard. Notifies the monitor
-/// to skip the next change to avoid recording our own writes.
 enum PasteboardWriter {
 
-    /// The monitor instance. Set by AppDelegate after initialization.
     static weak var monitor: ClipboardMonitor?
 
-    /// Copy a ClipboardItem's content to the general pasteboard.
     static func copyToClipboard(_ item: ClipboardItem) {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
+        let pb = NSPasteboard.general
+        pb.clearContents()
 
         switch item.contentType {
         case .text:
             if let text = item.textContent {
-                pasteboard.setString(text, forType: .string)
+                pb.setString(text, forType: .string)
             }
 
         case .rtf:
-            if let rtfData = item.imageData {
-                pasteboard.setData(rtfData, forType: .rtf)
+            if let rtf = item.imageData {  // RTF stored in imageData
+                pb.setData(rtf, forType: .rtf)
             }
             if let text = item.textContent {
-                pasteboard.setString(text, forType: .string)
+                pb.setString(text, forType: .string)
             }
 
         case .html:
-            if let text = item.textContent {
-                pasteboard.setString(text, forType: .html)
-                let plainText = stripHTML(text)
-                pasteboard.setString(plainText, forType: .string)
+            if let html = item.textContent {
+                pb.setString(html, forType: .html)
+                pb.setString(stripHTML(html), forType: .string)
             }
 
         case .image:
-            if let imageData = item.imageData {
-                pasteboard.setData(imageData, forType: .png)
+            if let data = item.imageData {
+                pb.setData(data, forType: .png)
+                // Also provide TIFF for apps that prefer it
+                if let image = NSImage(data: data),
+                   let tiff = image.tiffRepresentation {
+                    pb.setData(tiff, forType: .tiff)
+                }
             }
 
         case .file:
             if let urls = item.fileURLs {
-                pasteboard.writeObjects(urls as [NSURL])
+                pb.writeObjects(urls.map { $0 as NSURL })
             }
         }
 
-        // Sync changeCount so our own writes don't get re-captured
         monitor?.syncChangeCount()
     }
 
-    /// Copy and simulate Cmd+V to paste into the previously active app.
     static func copyAndPaste(_ item: ClipboardItem) {
         copyToClipboard(item)
-
-        let source = CGEventSource(stateID: .combinedSessionState)
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
-        keyDown?.flags = .maskCommand
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
-        keyUp?.flags = .maskCommand
-
-        keyDown?.post(tap: .cghidEventTap)
-        keyUp?.post(tap: .cghidEventTap)
+        let src = CGEventSource(stateID: .combinedSessionState)
+        let down = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: true)
+        down?.flags = .maskCommand
+        let up = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: false)
+        up?.flags = .maskCommand
+        down?.post(tap: .cghidEventTap)
+        up?.post(tap: .cghidEventTap)
     }
 
     private static func stripHTML(_ html: String) -> String {
         guard let data = html.data(using: .utf8) else { return html }
-        let options: [NSAttributedString.DocumentReadingOptionKey: Any] = [
+        let opts: [NSAttributedString.DocumentReadingOptionKey: Any] = [
             .documentType: NSAttributedString.DocumentType.html,
             .characterEncoding: String.Encoding.utf8.rawValue
         ]
-        if let attributed = try? NSAttributedString(data: data, options: options, documentAttributes: nil) {
-            return attributed.string
+        if let attr = try? NSAttributedString(data: data, options: opts, documentAttributes: nil) {
+            return attr.string
         }
         return html.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
     }

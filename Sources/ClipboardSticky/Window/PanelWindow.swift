@@ -21,9 +21,9 @@ final class PanelWindow: NSPanel, ObservableObject {
     enum Metrics {
         static let tabWidth: CGFloat = 28
         static let tabHeight: CGFloat = 80
-        static let panelWidth: CGFloat = 320
-        static let cornerRadius: CGFloat = 12
-        static let edgeInset: CGFloat = 0  // flush against screen edge
+        static let panelWidth: CGFloat = 360
+        static let cornerRadius: CGFloat = 14
+        static let edgeInset: CGFloat = 0
     }
 
     let stateModel = PanelStateModel()
@@ -74,7 +74,7 @@ final class PanelWindow: NSPanel, ObservableObject {
     private func configureWindow() {
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = false
+        hasShadow = true
         level = .floating
         isMovableByWindowBackground = false
         isMovable = false
@@ -106,7 +106,8 @@ final class PanelWindow: NSPanel, ObservableObject {
             ? fullFrame.maxX - Metrics.panelWidth - Metrics.edgeInset
             : fullFrame.minX + Metrics.edgeInset
 
-        setFrame(NSRect(origin: NSPoint(x: x, y: y), size: size), display: true, animate: false)
+        let winFrame = NSRect(origin: NSPoint(x: x, y: y), size: size)
+        setFrame(winFrame, display: true, animate: false)
     }
 
     var tabScreenRect: NSRect {

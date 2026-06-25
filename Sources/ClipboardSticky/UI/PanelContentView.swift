@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
 
-/// The main expanded panel content: search bar + clipboard list + toolbar.
 struct PanelContentView: View {
     @EnvironmentObject var stateModel: PanelStateModel
     @EnvironmentObject var panelWindow: PanelWindow
@@ -12,113 +11,54 @@ struct PanelContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            headerView
-
-            Divider()
-                .opacity(0.3)
-
+            // Search
             SearchField(text: $searchText)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 10)
 
-            Divider()
-                .opacity(0.3)
+            // List
+            ClipboardListView(searchText: searchText, selectedItemID: $selectedItemID)
+                .id(searchText)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            ClipboardListView(
-                searchText: searchText,
-                selectedItemID: $selectedItemID
-            )
-            .id(searchText)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            Divider()
-                .opacity(0.3)
-
+            // Toolbar
             bottomToolbar
+                .padding(.top, 4)
         }
     }
 
-    // MARK: - Header
+    // MARK: - Toolbar
 
-    private var headerView: some View {
-        HStack {
-            Text("剪贴板")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.secondary)
+    private var bottomToolbar: some View {
+        HStack(spacing: 0) {
+            toolbarButton("pin", active: stateModel.state == .locked,
+                          help: "固定面板") { panelWindow.toggleLock() }
 
             Spacer()
 
-            Button(action: { panelWindow.toggleLock() }) {
-                Image(systemName: stateModel.state == .locked ? "pin.fill" : "pin")
-                    .font(.system(size: 11))
-                    .foregroundColor(stateModel.state == .locked ? .accentColor : .secondary)
-            }
-            .buttonStyle(.plain)
-            .help("固定面板")
+            toolbarButton("arrow.left.arrow.right", active: false,
+                          help: "切换左右") { PanelAnimator.toggleEdge(panelWindow) }
+
+            toolbarButton("gearshape", active: false,
+                          help: "设置") { openSettings() }
+
+            toolbarButton("xmark.square", active: false,
+                          help: "退出") { NSApplication.shared.terminate(nil) }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 14)
         .padding(.vertical, 10)
     }
 
-    // MARK: - Bottom Toolbar
-
-    private var bottomToolbar: some View {
-        HStack(spacing: 14) {
-            Button(action: { openSettings() }) {
-                Image(systemName: "gear")
-                    .font(.system(size: 12))
-            }
-            .buttonStyle(.plain)
-            .help("设置")
-
-            Spacer()
-
-            Button(action: { clearAllItems() }) {
-                Text("清空")
-                    .font(.system(size: 10))
-            }
-            .buttonStyle(.plain)
-            .help("清空未固定的历史")
-
-            Button(action: { PanelAnimator.toggleEdge(panelWindow) }) {
-                Image(systemName: "arrow.left.arrow.right")
-                    .font(.system(size: 12))
-            }
-            .buttonStyle(.plain)
-            .help("切换左右")
-
-            Button(action: { PanelAnimator.collapse(panelWindow) }) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
-            }
-            .buttonStyle(.plain)
-            .help("收起面板")
-
-            Button(action: { quitApp() }) {
-                Image(systemName: "xmark.square")
-                    .font(.system(size: 12))
-            }
-            .buttonStyle(.plain)
-            .help("退出程序")
+    private func toolbarButton(_ icon: String, active: Bool, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: active ? "\(icon).fill" : icon)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(active ? .accentColor : .secondary)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-    }
-
-    // MARK: - Actions
-
-    private func clearAllItems() {
-        let descriptor = FetchDescriptor<ClipboardItem>(
-            predicate: #Predicate { !$0.isPinned }
-        )
-        guard let items = try? modelContext.fetch(descriptor) else { return }
-        for item in items {
-            modelContext.delete(item)
-        }
-        try? modelContext.save()
-    }
-
-    private func quitApp() {
-        NSApplication.shared.terminate(nil)
+        .buttonStyle(.plain)
+        .help(help)
     }
 }
