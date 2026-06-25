@@ -11,28 +11,24 @@ struct PanelContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Search
             SearchField(text: $searchText)
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
                 .padding(.bottom, 10)
 
-            // List
             ClipboardListView(searchText: searchText, selectedItemID: $selectedItemID)
                 .id(searchText)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Toolbar
             bottomToolbar
                 .padding(.top, 4)
         }
     }
 
-    // MARK: - Toolbar
-
     private var bottomToolbar: some View {
         HStack(spacing: 0) {
-            toolbarButton("pin", active: stateModel.state == .locked,
+            toolbarButton(stateModel.state == .locked ? "pin.fill" : "pin",
+                          active: stateModel.state == .locked,
                           help: "固定面板") { panelWindow.toggleLock() }
 
             Spacer()
@@ -50,11 +46,12 @@ struct PanelContentView: View {
         .padding(.vertical, 10)
     }
 
-    private func toolbarButton(_ icon: String, active: Bool, help: String, action: @escaping () -> Void) -> some View {
+    private func toolbarButton(_ icon: String, active: Bool, help: String,
+                               action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: active ? "\(icon).fill" : icon)
+            Image(systemName: icon)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(active ? .accentColor : .secondary)
+                .foregroundColor(active ? .stickyAccent : .stickyTextSecondary)
                 .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
         }

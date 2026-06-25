@@ -19,7 +19,7 @@ enum PanelState: Equatable {
 final class PanelWindow: NSPanel, ObservableObject {
 
     enum Metrics {
-        static let tabWidth: CGFloat = 28
+        static let tabWidth: CGFloat = 14
         static let tabHeight: CGFloat = 80
         static let panelWidth: CGFloat = 360
         static let cornerRadius: CGFloat = 14
@@ -99,7 +99,7 @@ final class PanelWindow: NSPanel, ObservableObject {
         // but some configs (Stage Manager, side Dock) may inset horizontal edges too.
         let fullFrame = screen.frame
         let visibleFrame = screen.visibleFrame
-        let h = visibleFrame.height * 0.7
+        let h = visibleFrame.height * 0.52
         let y = visibleFrame.midY - h / 2
         let size = NSSize(width: Metrics.panelWidth, height: h)
         let x = preferredEdge == .right
